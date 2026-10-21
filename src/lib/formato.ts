@@ -83,3 +83,22 @@ export function diasAte(d: DataLike) {
   hoje.setHours(0, 0, 0, 0);
   return Math.round((alvo.getTime() - hoje.getTime()) / 86_400_000);
 }
+
+/** "agora", "há 3 min", "há 2 h", "há 3 dias" */
+export function fmtRelativo(d: DataLike, agora: number = Date.now()) {
+  const alvo = data(d);
+  if (!alvo) return "—";
+  const s = Math.max(0, (agora - alvo.getTime()) / 1000);
+  if (s < 45) return "agora";
+  if (s < 3600) return `há ${Math.round(s / 60)} min`;
+  if (s < 86_400) return `há ${Math.floor(s / 3600)} h`;
+  return `há ${Math.floor(s / 86_400)} dia${s >= 172_800 ? "s" : ""}`;
+}
+
+/** Cronómetro h:mm:ss */
+export function fmtCronometro(segundos: number) {
+  const s = Math.max(0, Math.floor(segundos));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
