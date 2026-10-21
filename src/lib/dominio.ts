@@ -147,3 +147,26 @@ export type AcaoNC = (typeof ACOES_NC)[number];
 
 export const ESTADOS_NC = ["aberta", "em_resolucao", "resolvida", "fechada"] as const;
 export type EstadoNC = (typeof ESTADOS_NC)[number];
+
+export const LABEL_EVENTO: Record<TipoEvento, string> = {
+  criacao: "Chapa criada",
+  inicio_producao: "Início de produção",
+  fim_producao: "Produção concluída",
+  qc_aprovado: "Aprovada QC",
+  qc_reprovado: "Reprovada QC",
+  retrabalho_inicio: "Início de retrabalho",
+  retrabalho_fim: "Retrabalho concluído",
+  expedicao: "Expedida",
+  instalacao: "Instalada em obra",
+  observacao: "Observação",
+  scan_qr: "Leitura QR",
+};
+
+export const LABEL_SEVERIDADE_NC: Record<SeveridadeNC, string> = { minor: "Menor", major: "Maior", critica: "Crítica" };
+export const LABEL_ACAO_NC: Record<AcaoNC, string> = {
+  retrabalho: "Retrabalho",
+  substituicao: "Substituição",
+  aceite_condicional: "Aceite condicional",
+  sucata: "Sucata",
+};
+export const LABEL_ESTADO_NC: Record<EstadoNC, string> = { aberta: "Aberta", em_resolucao: "Em resolução", resolvida: "Resolvida", fechada: "Fechada" };
