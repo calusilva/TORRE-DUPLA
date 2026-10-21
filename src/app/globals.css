@@ -158,3 +158,13 @@
 @media (prefers-reduced-motion: reduce) {
   .chapa-em-producao, .alerta-piscar { animation: none; }
 }
+
+/* Séries categóricas dos gráficos (paleta validada para daltonismo; tons próprios no escuro) */
+:root {
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+}
+.dark {
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+}
