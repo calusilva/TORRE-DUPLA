@@ -5,5 +5,5 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
   // Tudo excepto API de auth, assets estáticos e ficheiros com extensão.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

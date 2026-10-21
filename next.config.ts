@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Renderização de PDF e códigos de barras no servidor (Node), fora do bundle.
+  serverExternalPackages: ["@react-pdf/renderer", "bwip-js"],
 };
 
 export default nextConfig;

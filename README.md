@@ -28,6 +28,15 @@ Abrir http://localhost:3000 e entrar com uma conta de demonstração (palavra-pa
 > As datas do seed são relativas ao momento em que corre. Antes de uma apresentação,
 > correr `npm run db:seed` para que o dashboard mostre a produção "de hoje".
 
+## Etiquetas
+
+- `GET /api/chapas/:id/etiqueta?formato=A6_individual` — etiqueta de uma chapa
+- `POST /api/qr/gerar` `{ chapaIds, formato: "A4_4por_pagina" | "A6_individual" | "rolo", incluirBarcode }` — lote
+
+Cada etiqueta tem QR Code + Code 128. O conteúdo do QR é definido por `QR_CONTEUDO`
+(`json`, como na especificação, ou `url` para abrir a rastreabilidade com a câmara do telemóvel).
+Todas as impressões ficam registadas em `etiquetas_impressas` (com indicação de reimpressão).
+
 ## Scripts
 
 | Script               | Descrição                                   |
