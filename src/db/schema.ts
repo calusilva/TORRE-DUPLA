@@ -12,7 +12,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import type { EstadoChapa, EstadoObra, EstadoOF, Perfil } from "@/lib/dominio";
+import type { EstadoChapa, EstadoObra, EstadoOF, Perfil, TipoMovimento, UnidadeMaterial } from "@/lib/dominio";
 
 // ============================================================
 // UTILIZADORES
@@ -192,6 +192,44 @@ export const etiquetasImpressas = pgTable("etiquetas_impressas", {
 });
 
 // ============================================================
+// MATERIAIS (stock — simulação sem integração Primavera)
+// ============================================================
+export const materiais = pgTable("materiais", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  codigo: varchar("codigo", { length: 20 }).notNull().unique(),
+  nome: varchar("nome", { length: 100 }).notNull(),
+  unidade: varchar("unidade", { length: 20 }).$type<UnidadeMaterial>().notNull(),
+  stockAtual: decimal("stock_atual", { precision: 10, scale: 2 }).notNull().default("0"),
+  stockMinimo: decimal("stock_minimo", { precision: 10, scale: 2 }).notNull(),
+  stockMaximo: decimal("stock_maximo", { precision: 10, scale: 2 }),
+  precoUnitario: decimal("preco_unitario", { precision: 10, scale: 4 }),
+  fornecedor: varchar("fornecedor", { length: 150 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// ============================================================
+// MOVIMENTOS DE STOCK
+// ============================================================
+export const movimentosStock = pgTable(
+  "movimentos_stock",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    materialId: uuid("material_id").notNull().references(() => materiais.id),
+    tipo: varchar("tipo", { length: 20 }).$type<TipoMovimento>().notNull(),
+    quantidade: decimal("quantidade", { precision: 10, scale: 2 }).notNull(), // com sinal: saídas negativas
+    quantidadeAnterior: decimal("quantidade_anterior", { precision: 10, scale: 2 }).notNull(),
+    quantidadeNova: decimal("quantidade_nova", { precision: 10, scale: 2 }).notNull(),
+    motivo: varchar("motivo", { length: 200 }),
+    fornecedor: varchar("fornecedor", { length: 150 }), // entradas
+    ofId: uuid("of_id").references(() => ordensFabrico.id), // saída por produção
+    utilizadorId: uuid("utilizador_id").references(() => utilizadores.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("movimentos_stock_material_idx").on(t.materialId), index("movimentos_stock_data_idx").on(t.createdAt)],
+);
+
+// ============================================================
 // RELAÇÕES (para db.query.*)
 // ============================================================
 export const obrasRelations = relations(obras, ({ one, many }) => ({
@@ -252,6 +290,12 @@ export const etiquetasImpressasRelations = relations(etiquetasImpressas, ({ one 
   impressaPor: one(utilizadores, { fields: [etiquetasImpressas.impressaPorId], references: [utilizadores.id] }),
 }));
 
+export const movimentosStockRelations = relations(movimentosStock, ({ one }) => ({
+  material: one(materiais, { fields: [movimentosStock.materialId], references: [materiais.id] }),
+  of: one(ordensFabrico, { fields: [movimentosStock.ofId], references: [ordensFabrico.id] }),
+  utilizador: one(utilizadores, { fields: [movimentosStock.utilizadorId], references: [utilizadores.id] }),
+}));
+
 export const utilizadoresRelations = relations(utilizadores, ({ many }) => ({
   chapasProduzidas: many(chapas, { relationName: "operadorProducao" }),
   chapasInspeccionadas: many(chapas, { relationName: "operadorQc" }),
@@ -266,3 +310,5 @@ export type Chapa = typeof chapas.$inferSelect;
 export type ChapaEvento = typeof chapaEventos.$inferSelect;
 export type NaoConformidade = typeof naoConformidades.$inferSelect;
 export type EtiquetaImpressa = typeof etiquetasImpressas.$inferSelect;
+export type MaterialStock = typeof materiais.$inferSelect;
+export type MovimentoStock = typeof movimentosStock.$inferSelect;

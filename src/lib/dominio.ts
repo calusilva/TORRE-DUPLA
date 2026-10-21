@@ -214,3 +214,17 @@ export function transicoesPermitidas(estado: EstadoChapa, perfil: Perfil): Estad
 export const FUSO_FABRICA = "Europe/Lisbon";
 /** Meta diária de chapas produzidas (dashboard). */
 export const META_DIARIA_CHAPAS = 40;
+
+// ------------------------------------------------------------
+// Stock
+// ------------------------------------------------------------
+export const UNIDADES_MATERIAL = ["kg", "ml", "m2", "un"] as const;
+export type UnidadeMaterial = (typeof UNIDADES_MATERIAL)[number];
+export const LABEL_UNIDADE: Record<UnidadeMaterial, string> = { kg: "kg", ml: "ml", m2: "m²", un: "un" };
+
+export const TIPOS_MOVIMENTO = ["entrada", "saida", "ajuste", "reserva"] as const;
+export type TipoMovimento = (typeof TIPOS_MOVIMENTO)[number];
+export const LABEL_TIPO_MOVIMENTO: Record<TipoMovimento, string> = { entrada: "Entrada", saida: "Saída", ajuste: "Ajuste", reserva: "Reserva" };
+
+/** Perfis que podem registar movimentos manuais de stock. */
+export const PERFIS_MOVIMENTO_STOCK: Perfil[] = ["admin", "encarregado"];

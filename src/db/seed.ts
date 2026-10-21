@@ -17,6 +17,7 @@ import { calcularM2, gerarCodigoChapa, gerarPayloadQR, sufixoOf } from "../lib/c
 import { POSTOS_TRABALHO, type EstadoChapa } from "../lib/dominio";
 import { planearGrelha, type ChapaPlaneada, type GrelhaZona } from "../lib/fachada";
 import { MATERIAIS } from "../lib/materiais";
+import { consumoTeorico, type CodigoMaterial } from "../lib/consumos";
 
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
 const db = drizzle(client, { schema });
@@ -70,6 +71,70 @@ function recuarTempoUtil(data: Date, minutos: number): Date {
   return cursor;
 }
 
+/** Avança `minutos` de tempo útil a partir de `data`. */
+function avancarTempoUtil(data: Date, minutos: number): Date {
+  let cursor = new Date(data);
+  let restante = minutos;
+  while (restante > 0) {
+    const inicioTurno = new Date(cursor);
+    inicioTurno.setHours(INICIO_TURNO, 0, 0, 0);
+    const fimTurno = new Date(cursor);
+    fimTurno.setHours(FIM_TURNO, 0, 0, 0);
+    if (!eDiaUtil(cursor) || cursor >= fimTurno) {
+      cursor.setDate(cursor.getDate() + 1);
+      cursor.setHours(INICIO_TURNO, 0, 0, 0);
+      continue;
+    }
+    if (cursor < inicioTurno) cursor = inicioTurno;
+    const usar = Math.min((fimTurno.getTime() - cursor.getTime()) / MIN, restante);
+    cursor = new Date(cursor.getTime() + usar * MIN);
+    restante -= usar;
+  }
+  return cursor;
+}
+
+function minutosUteisEntre(a: Date, b: Date) {
+  let total = 0;
+  const d = new Date(a);
+  d.setHours(0, 0, 0, 0);
+  while (d <= b) {
+    if (eDiaUtil(d)) {
+      const ini = new Date(d);
+      ini.setHours(INICIO_TURNO, 0, 0, 0);
+      const fim = new Date(d);
+      fim.setHours(FIM_TURNO, 0, 0, 0);
+      const s = Math.max(ini.getTime(), a.getTime());
+      const e = Math.min(fim.getTime(), b.getTime());
+      if (e > s) total += (e - s) / MIN;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return total;
+}
+
+/** O n-ésimo dia útil antes de hoje, à hora indicada. */
+function diaUtilAtras(n: number, hora: number) {
+  const d = new Date();
+  let k = 0;
+  while (k < n) {
+    d.setDate(d.getDate() - 1);
+    if (eDiaUtil(d)) k++;
+  }
+  d.setHours(hora, 0, 0, 0);
+  return d;
+}
+
+function diaUtilDepois(base: Date, n: number, hora: number) {
+  const d = new Date(base);
+  let k = 0;
+  while (k < n) {
+    d.setDate(d.getDate() + 1);
+    if (eDiaUtil(d)) k++;
+  }
+  d.setHours(hora, randInt(0, 50), 0, 0);
+  return d;
+}
+
 const agora = new Date();
 const ANO = agora.getFullYear();
 const minAtras = (m: number) => new Date(agora.getTime() - m * MIN);
@@ -98,7 +163,7 @@ function planearChapas(zonas: GrelhaZona[]): ChapaPlaneada[] {
 async function main() {
   console.log("→ A limpar base de dados…");
   await db.execute(sql`
-    TRUNCATE etiquetas_impressas, nao_conformidades, chapa_eventos, chapas,
+    TRUNCATE movimentos_stock, materiais, etiquetas_impressas, nao_conformidades, chapa_eventos, chapas,
              ordens_fabrico, obras, utilizadores RESTART IDENTITY CASCADE
   `);
 
@@ -181,6 +246,19 @@ async function main() {
         encarregadoId: u.rui.id,
       },
       {
+        codigo: `TD-${ANO - 1}-022`,
+        nome: "Escola Básica de Alverca — Requalificação",
+        cliente: "CM Vila Franca de Xira",
+        localObra: "Alverca do Ribatejo",
+        tipoFachada: "ACM",
+        totalM2: "612.00",
+        estado: "expedida",
+        dataInicioProducao: dataISO(diasAtras(30)),
+        dataEntregaPrevista: diasAFrente(4),
+        encarregadoId: u.rui.id,
+        observacoes: "Montagem em obra a decorrer pela equipa do cliente. Fachada Nascente já instalada.",
+      },
+      {
         codigo: `TD-${ANO}-004`,
         nome: "Armazém Logístico Azambuja",
         cliente: "LogiPark SA",
@@ -213,9 +291,63 @@ async function main() {
     fechoPrevistoDias: number;
     produzidas: number;
     emProducao: number;
+    /** OF já produzida: produção distribuída entre `deDias` e `ateDias` (dias úteis atrás). */
+    historico?: { deDias: number; ateDias: number; final: "instalada" | "expedida"; gps?: [string, string] };
   }
 
+  const historicoAlverca = (numero: string, deDias: number, ateDias: number, final: "instalada" | "expedida") => ({ numero, deDias, ateDias, final, gps: ["38.89560000", "-9.03930000"] as [string, string] });
+  // Janelas sobrepostas (dias úteis atrás) — várias OFs em paralelo, como no chão de fábrica.
+  const hA = [historicoAlverca("0086", 21, 11, "instalada"), historicoAlverca("0087", 15, 5, "expedida"), historicoAlverca("0088", 9, 3, "expedida")];
+
   const defs: DefOF[] = [
+    {
+      numero: `OF-${ANO}-0086`,
+      obraSufixo: "-022",
+      descricao: "Revestimento ACM — Fachada Nascente (corpo de aulas)",
+      zona: "Fachada Nascente",
+      material: MATERIAIS.acmBranco,
+      grelha: [{ zona: "Fachada Nascente", larguras: [1200, 1200, 1200, 900, 1200, 1200, 1200, 900, 1200, 1200, 1200, 1200], alturas: [700, 700, 700, 700, 700, 700, 700, 700, 700, 700] }],
+      estado: "concluida",
+      prioridade: 2,
+      responsavel: u.joao,
+      abertaHaDias: 31,
+      fechoPrevistoDias: -16,
+      produzidas: 120,
+      emProducao: 0,
+      historico: hA[0],
+    },
+    {
+      numero: `OF-${ANO}-0087`,
+      obraSufixo: "-022",
+      descricao: "Revestimento ACM — Fachada Poente (ginásio)",
+      zona: "Fachada Poente",
+      material: MATERIAIS.acmBranco,
+      grelha: [{ zona: "Fachada Poente", larguras: [1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500], alturas: [800, 800, 800, 800, 800, 800, 800, 800, 800, 800] }],
+      estado: "concluida",
+      prioridade: 2,
+      responsavel: u.ana,
+      abertaHaDias: 22,
+      fechoPrevistoDias: -9,
+      produzidas: 120,
+      emProducao: 0,
+      historico: hA[1],
+    },
+    {
+      numero: `OF-${ANO}-0088`,
+      obraSufixo: "-022",
+      descricao: "Pala de entrada e platibanda em ACM 3mm cinza RAL 7035",
+      zona: "Platibanda",
+      material: MATERIAIS.acmCinza,
+      grelha: [{ zona: "Platibanda", larguras: [1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200, 1200], alturas: [600, 600, 600, 600] }],
+      estado: "concluida",
+      prioridade: 1,
+      responsavel: u.carlos,
+      abertaHaDias: 13,
+      fechoPrevistoDias: -4,
+      produzidas: 60,
+      emProducao: 0,
+      historico: hA[2],
+    },
     {
       numero: `OF-${ANO}-0089`,
       obraSufixo: "-001",
@@ -336,7 +468,7 @@ async function main() {
         operadorResponsavelId: d.responsavel.id,
         dataAbertura: diasAtras(d.abertaHaDias, 8),
         dataFechoPrevisto: diasAFrente(d.fechoPrevistoDias),
-        dataFechoReal: d.estado === "concluida" ? diasAtras(-d.fechoPrevistoDias + 5, 17) : null,
+        dataFechoReal: d.historico ? recuarTempoUtil(diaUtilAtras(d.historico.ateDias, FIM_TURNO), 30) : d.estado === "concluida" ? diasAtras(-d.fechoPrevistoDias + 5, 17) : null,
       })),
     )
     .returning();
@@ -414,6 +546,51 @@ async function main() {
     }
 
     const daOf = chapasInserir.filter((c) => c.ofId === of.id);
+
+    if (def.historico) {
+      // OF produzida nas últimas semanas: ritmo constante dentro dos turnos, QC no próprio dia,
+      // expedição em cargas de 2–4 dias e instalação confirmada em obra (se já ocorreu).
+      const h = def.historico;
+      const inicioJanela = diaUtilAtras(h.deDias, INICIO_TURNO);
+      const fimJanela = diaUtilAtras(h.ateDias, FIM_TURNO);
+      const minutosUteis = minutosUteisEntre(inicioJanela, fimJanela);
+      const passo = minutosUteis / daOf.length;
+      let t = new Date(inicioJanela);
+      for (const [k, c] of daOf.entries()) {
+        t = avancarTempoUtil(t, passo * (0.7 + rand() * 0.6));
+        if (t > fimJanela) t = new Date(fimJanela.getTime() - (daOf.length - k) * MIN);
+        const op = escolher(operadores);
+        const duracao = randInt(45, 150);
+        // A chapa é feita dentro do turno: se começaria antes das 07:00, termina mais tarde.
+        const inicioTurno = new Date(t);
+        inicioTurno.setHours(INICIO_TURNO, 0, 0, 0);
+        if (t.getTime() - duracao * MIN < inicioTurno.getTime()) t = new Date(inicioTurno.getTime() + (duracao + randInt(5, 30)) * MIN);
+        const inicio = new Date(t.getTime() - duracao * MIN);
+        const qc = avancarTempoUtil(t, randInt(30, 200));
+        const exp = new Date(Math.min(diaUtilDepois(qc, randInt(1, 3), 15).getTime(), agora.getTime() - 60 * MIN));
+        const instalavel = h.final === "instalada";
+        const inst = instalavel ? new Date(Math.min(diaUtilDepois(exp, randInt(2, 5), 11).getTime(), agora.getTime() - 120 * MIN)) : null;
+        Object.assign(c, {
+          estado: (inst ? "instalada" : "expedida") satisfies EstadoChapa,
+          operadorProducaoId: op.id,
+          operadorQcId: u.manuel.id,
+          dataInicioProd: inicio,
+          dataFimProd: t,
+          dataQC: qc,
+          dataExpedicao: exp,
+          dataInstalacao: inst,
+          updatedAt: inst ?? exp,
+        });
+        eventos.push(...historicoProducao(c, op, inicio, t, qc));
+        const guia = `GR-${1300 + Math.floor(exp.getTime() / 86_400_000) % 400}`;
+        eventos.push({ chapaId: c.id!, tipo: "expedicao", descricao: `Carregada na guia de remessa ${guia}`, estadoAnterior: "aprovada_qc", estadoNovo: "expedida", utilizadorId: u.rui.id, timestamp: exp, metadados: { guia, viatura: "45-TD-12" } });
+        if (inst) {
+          eventos.push({ chapaId: c.id!, tipo: "instalacao", descricao: "Instalação confirmada em obra", estadoAnterior: "expedida", estadoNovo: "instalada", utilizadorId: u.rui.id, timestamp: inst, latitude: h.gps?.[0] ?? null, longitude: h.gps?.[1] ?? null });
+        }
+        etiquetas.push({ chapaId: c.id!, impressaPorId: op.id, dataImpressao: new Date(inicio.getTime() - 5 * MIN), impressora: "Zebra ZT230 — Corte", formato: "A6" });
+      }
+      continue;
+    }
 
     if (def.estado === "concluida") {
       // Obra concluída: todas instaladas, histórico completo há vários meses.
@@ -540,7 +717,7 @@ async function main() {
   // ----------------------------------------------------------
   // Não conformidades (OF-0089): 1 resolvida, 2 em aberto
   // ----------------------------------------------------------
-  const of89 = ofs[0];
+  const of89 = ofs.find((o) => o.numero.endsWith("0089"))!;
   const aprovadas89 = chapasInserir.filter((c) => c.ofId === of89.id && c.estado === "aprovada_qc");
   const [ncResolvida, ncRejeitada, ncRetrabalho] = [aprovadas89[2], aprovadas89[9], aprovadas89[15]];
   const ncs: (typeof schema.naoConformidades.$inferInsert)[] = [];
@@ -613,7 +790,134 @@ async function main() {
   await db.insert(schema.etiquetasImpressas).values(etiquetas);
   await db.insert(schema.naoConformidades).values(ncs);
 
+  // ----------------------------------------------------------
+  // Stock de materiais + movimentos dos últimos 30 dias
+  // ----------------------------------------------------------
+  await seedStock(chapasInserir, ofs, u.rui.id);
+
   console.log("✓ Seed concluído");
+}
+
+/**
+ * Materiais com o stock actual da especificação e 30 dias de movimentos coerentes:
+ * saídas diárias por OF (reais nos dias com produção no seed, estimadas nos restantes),
+ * entradas quinzenais e um ajuste de inventário. O stock inicial é deduzido de trás para
+ * a frente para que o stock final seja exactamente o da tabela (MAT-008 abaixo do mínimo).
+ */
+async function seedStock(
+  chapasSeed: (typeof schema.chapas.$inferInsert)[],
+  ofs: schema.OrdemFabrico[],
+  utilizadorId: string,
+) {
+  console.log("→ Materiais e movimentos de stock");
+  const defsMat: { codigo: CodigoMaterial; nome: string; unidade: schema.MaterialStock["unidade"]; atual: number; minimo: number; maximo: number; preco: number; fornecedor: string; entradas: number[] }[] = [
+    { codigo: "MAT-001", nome: "Chapa alumínio 1,5mm", unidade: "kg", atual: 2840, minimo: 500, maximo: 4000, preco: 3.85, fornecedor: "Alu-Ibérica, S.A.", entradas: [28, 14] },
+    { codigo: "MAT-002", nome: "Chapa alumínio 2,0mm", unidade: "kg", atual: 1620, minimo: 400, maximo: 2500, preco: 4.1, fornecedor: "Alu-Ibérica, S.A.", entradas: [28, 14] },
+    { codigo: "MAT-003", nome: "Perfis alumínio extrudido", unidade: "ml", atual: 890, minimo: 200, maximo: 1500, preco: 6.2, fornecedor: "Extrusal — Companhia Portuguesa de Extrusão", entradas: [27, 13] },
+    { codigo: "MAT-004", nome: "Isolamento mineral 60mm", unidade: "m2", atual: 340, minimo: 150, maximo: 600, preco: 9.8, fornecedor: "Isolcor, Lda.", entradas: [25, 11] },
+    { codigo: "MAT-005", nome: "Fita de vedação EPDM", unidade: "ml", atual: 1250, minimo: 300, maximo: 2000, preco: 1.35, fornecedor: "Vedaplás, Lda.", entradas: [21] },
+    { codigo: "MAT-006", nome: "Fixações inox M8", unidade: "un", atual: 4200, minimo: 1000, maximo: 8000, preco: 0.18, fornecedor: "Fixinox, Lda.", entradas: [26, 12] },
+    { codigo: "MAT-007", nome: "Tinta em pó RAL 9006", unidade: "kg", atual: 85, minimo: 50, maximo: 150, preco: 11.5, fornecedor: "Tintas CIN Industrial", entradas: [20] },
+    // Antracite: entrega atrasada pelo fornecedor — fica abaixo do mínimo.
+    { codigo: "MAT-008", nome: "Tinta em pó RAL 7016", unidade: "kg", atual: 23, minimo: 50, maximo: 150, preco: 12.4, fornecedor: "Tintas CIN Industrial", entradas: [29] },
+  ];
+
+  const inseridos = await db
+    .insert(schema.materiais)
+    .values(defsMat.map((m) => ({ codigo: m.codigo, nome: m.nome, unidade: m.unidade, stockAtual: m.atual.toFixed(2), stockMinimo: m.minimo.toFixed(2), stockMaximo: m.maximo.toFixed(2), precoUnitario: m.preco.toFixed(4), fornecedor: m.fornecedor })))
+    .returning({ id: schema.materiais.id, codigo: schema.materiais.codigo });
+  const idMat = Object.fromEntries(inseridos.map((m) => [m.codigo, m.id])) as Record<CodigoMaterial, string>;
+
+  type Mov = { codigo: CodigoMaterial; tipo: "entrada" | "saida" | "ajuste"; q: number; quando: Date; motivo: string; ofId?: string; fornecedor?: string };
+  const movs: Mov[] = [];
+  const diaDe = (d: Date) => d.toISOString().slice(0, 10);
+  const fimDoDia = (dias: number) => {
+    const d = diasAtras(dias, 18);
+    return d > agora ? new Date(agora.getTime() - 5 * MIN) : d;
+  };
+
+  // Saídas: chapas iniciadas no seed (OFs activas) agrupadas por dia e OF.
+  const activas = ofs.filter((o) => o.estado !== "concluida");
+  const limite = new Date(agora.getTime() - 31 * 24 * 60 * MIN);
+  const reais = new Map<string, Map<string, (typeof chapasSeed)[number][]>>();
+  for (const c of chapasSeed) {
+    if (!c.dataInicioProd || c.dataInicioProd < limite) continue;
+    const dia = diaDe(c.dataInicioProd);
+    if (!reais.has(dia)) reais.set(dia, new Map());
+    const porOf = reais.get(dia)!;
+    porOf.set(c.ofId, [...(porOf.get(c.ofId) ?? []), c]);
+  }
+
+  for (let dias = 30; dias >= 0; dias--) {
+    const dia = new Date(agora);
+    dia.setDate(dia.getDate() - dias);
+    if (!eDiaUtil(dia)) continue;
+    const porOf = reais.get(diaDe(dia));
+    const lotes: { ofId?: string; numero?: string; chapas: (typeof chapasSeed)[number][] }[] = [];
+    if (porOf) {
+      for (const [ofId, lista] of porOf) lotes.push({ ofId, numero: ofs.find((o) => o.id === ofId)?.numero, chapas: lista });
+    } else if (dias > 3) {
+      // Produção anterior ao período coberto pelas chapas do seed — estimada a partir das OFs abertas nesse dia.
+      const abertas = activas.filter((o) => o.dataAbertura && o.dataAbertura <= dia);
+      if (abertas.length) {
+        for (const o of abertas.slice(0, 2)) {
+          const modelo = chapasSeed.filter((c) => c.ofId === o.id).slice(0, 12);
+          const n = randInt(6, 14);
+          lotes.push({ ofId: o.id, numero: o.numero, chapas: Array.from({ length: n }, (_, i) => modelo[i % modelo.length]) });
+        }
+      } else {
+        // Antes das OFs actuais: chapas ACM 3mm (como as da OF-0092, obra de armazém semelhante).
+        const ref = activas.find((o) => o.numero.endsWith("0092")) ?? activas[0];
+        const modelo = chapasSeed.filter((c) => c.ofId === ref.id).slice(0, 10);
+        lotes.push({ chapas: Array.from({ length: randInt(14, 26) }, (_, i) => modelo[i % modelo.length]) });
+      }
+    }
+    for (const lote of lotes) {
+      const total: Partial<Record<CodigoMaterial, number>> = {};
+      for (const c of lote.chapas) {
+        for (const [cod, q] of Object.entries(consumoTeorico({ largura: c.largura, altura: c.altura, espessura: c.espessura ?? null, material: c.material ?? null, cor: c.cor ?? null })) as [CodigoMaterial, number][]) {
+          total[cod] = (total[cod] ?? 0) + q;
+        }
+      }
+      for (const [cod, q] of Object.entries(total) as [CodigoMaterial, number][]) {
+        movs.push({ codigo: cod, tipo: "saida", q: -Math.round(q * 100) / 100, quando: fimDoDia(dias), ofId: lote.ofId, motivo: lote.numero ? `Consumo de produção — ${lote.numero} (${lote.chapas.length} chapas)` : `Consumo de produção — OFs concluídas (${lote.chapas.length} chapas)` });
+      }
+    }
+  }
+
+  // Ajuste de inventário pontual.
+  movs.push({ codigo: "MAT-006", tipo: "ajuste", q: -140, quando: diasAtras(19, 17), motivo: "Inventário mensal — diferença de contagem" });
+  movs.push({ codigo: "MAT-008", tipo: "ajuste", q: -32, quando: diasAtras(16, 11), motivo: "Lote rejeitado na recepção — humidade na embalagem" });
+
+  // Entradas: calculadas para que o stock comece em ~60% do máximo e termine no valor actual.
+  for (const m of defsMat) {
+    const consumo = movs.filter((x) => x.codigo === m.codigo).reduce((s, x) => s + x.q, 0); // negativo
+    const inicialDesejado = m.maximo * 0.6;
+    const totalEntradas = Math.max(0, m.atual - consumo - inicialDesejado);
+    const partes = m.entradas.length;
+    m.entradas.forEach((dias, i) => {
+      const q = i === partes - 1 ? totalEntradas - Math.round(totalEntradas / partes) * (partes - 1) : Math.round(totalEntradas / partes);
+      if (q > 0) movs.push({ codigo: m.codigo, tipo: "entrada", q, quando: diasAtras(dias, 9), motivo: `Guia de remessa GR-${randInt(4100, 4999)}`, fornecedor: m.fornecedor });
+    });
+  }
+
+  // Encadeia quantidade anterior/nova por material, do mais antigo para o mais recente.
+  movs.sort((a, b) => a.quando.getTime() - b.quando.getTime());
+  const linhas: (typeof schema.movimentosStock.$inferInsert)[] = [];
+  for (const m of defsMat) {
+    const doMaterial = movs.filter((x) => x.codigo === m.codigo);
+    let stock = m.atual - doMaterial.reduce((s, x) => s + x.q, 0);
+    let minimo = stock;
+    for (const x of doMaterial) {
+      const anterior = stock;
+      stock = Math.round((stock + x.q) * 100) / 100;
+      minimo = Math.min(minimo, stock);
+      linhas.push({ materialId: idMat[m.codigo], tipo: x.tipo, quantidade: x.q.toFixed(2), quantidadeAnterior: anterior.toFixed(2), quantidadeNova: stock.toFixed(2), motivo: x.motivo, fornecedor: x.fornecedor ?? null, ofId: x.ofId ?? null, utilizadorId, createdAt: x.quando });
+    }
+    if (minimo < 0) console.warn(`  ! ${m.codigo}: stock negativo no histórico (${minimo.toFixed(1)})`);
+  }
+  for (let k = 0; k < linhas.length; k += 500) await db.insert(schema.movimentosStock).values(linhas.slice(k, k + 500));
+  console.log(`→ Movimentos de stock (${linhas.length})`);
 }
 
 main()

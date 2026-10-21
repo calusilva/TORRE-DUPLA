@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { chapaEventos, chapas, naoConformidades, obras, ordensFabrico } from "@/db/schema";
 import { extrairCodigoChapa } from "@/lib/codigos";
 import {
+  ACOES_NC,
   accaoTransicao,
   ESTADOS_CHAPA,
   ESTADOS_PRODUZIDOS,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/dominio";
 import { obterChapaScan, type ChapaScan } from "@/lib/queries";
 import { guardarFoto } from "@/lib/servicos/fotos";
+import { movimentarConsumoChapa } from "@/lib/servicos/stock";
 import { exigirSessao } from "@/lib/sessao";
 
 type Resultado = { ok: true; chapa: NonNullable<ChapaScan>; mensagem?: string } | { ok: false; erro: string };
@@ -53,6 +55,7 @@ const ncSchema = z.object({
   tipo: z.enum(TIPOS_NC, "Seleccione o tipo de não conformidade"),
   severidade: z.enum(SEVERIDADES_NC, "Seleccione a severidade"),
   descricao: z.string().trim().min(5, "Descreva o problema (mín. 5 caracteres)").max(1000),
+  acao: z.enum(ACOES_NC).optional(),
   fotoBase64: z.string().max(8_000_000).optional(),
 });
 export type DadosNC = z.input<typeof ncSchema>;
@@ -123,6 +126,8 @@ export async function transicionarChapa(input: z.input<typeof transicaoSchema>):
           update.dataInicioProd = agora;
           update.operadorProducaoId = user.id;
           descricao = observacao || "Produção iniciada";
+          // Saída automática de stock pelo consumo teórico da chapa.
+          await movimentarConsumoChapa(tx, c, -1, user.id);
           break;
         case "em_producao>produzida": {
           update.dataFimProd = agora;
@@ -135,6 +140,7 @@ export async function transicionarChapa(input: z.input<typeof transicaoSchema>):
           update.dataInicioProd = null;
           update.operadorProducaoId = null;
           descricao = observacao || "Produção suspensa — chapa devolvida à fila";
+          await movimentarConsumoChapa(tx, c, 1, user.id);
           break;
         case "produzida>aprovada_qc":
           update.dataQC = agora;
@@ -155,7 +161,7 @@ export async function transicionarChapa(input: z.input<typeof transicaoSchema>):
         case "rejeitada_qc>em_retrabalho":
           await tx
             .update(naoConformidades)
-            .set({ estado: "em_resolucao", acao: "retrabalho" })
+            .set({ estado: "em_resolucao", acao: sql`coalesce(${naoConformidades.acao}, 'retrabalho')` })
             .where(and(eq(naoConformidades.chapaId, c.id), eq(naoConformidades.estado, "aberta")));
           break;
         case "aprovada_qc>expedida":
@@ -174,6 +180,7 @@ export async function transicionarChapa(input: z.input<typeof transicaoSchema>):
           tipo: nc.tipo,
           severidade: nc.severidade,
           descricao: nc.descricao,
+          acao: nc.acao ?? null,
           reportadoPorId: user.id,
           dataReporte: agora,
           fotoUrl,
@@ -217,6 +224,8 @@ export async function transicionarChapa(input: z.input<typeof transicaoSchema>):
 
     revalidatePath(`/of/${r.ofId}`);
     revalidatePath(`/obras/${r.obraId}/layout-visual`);
+    revalidatePath("/qc");
+    if (novoEstado === "em_producao" || r.de === "em_producao") revalidatePath("/stock");
     const chapa = (await obterChapaScan({ id: chapaId }))!;
     return { ok: true, chapa, mensagem: `${r.codigo}: ${LABEL_ESTADO_CHAPA[r.de as EstadoChapa]} → ${LABEL_ESTADO_CHAPA[novoEstado]}` };
   } catch (e) {
@@ -246,7 +255,7 @@ export async function reportarProblema(input: { chapaId: string } & DadosNC): Pr
 
   const agora = new Date();
   await db.transaction(async (tx) => {
-    await tx.insert(naoConformidades).values({ chapaId: c.id, ofId: c.ofId, tipo: nc.tipo, severidade: nc.severidade, descricao: nc.descricao, reportadoPorId: user.id, dataReporte: agora, fotoUrl, estado: "aberta" });
+    await tx.insert(naoConformidades).values({ chapaId: c.id, ofId: c.ofId, tipo: nc.tipo, severidade: nc.severidade, descricao: nc.descricao, acao: nc.acao ?? null, reportadoPorId: user.id, dataReporte: agora, fotoUrl, estado: "aberta" });
     await tx.update(chapas).set({ temNaoConformidade: true, updatedAt: agora }).where(eq(chapas.id, c.id));
     await tx.insert(chapaEventos).values({ chapaId: c.id, tipo: "observacao", descricao: `Problema reportado: ${nc.descricao}`, estadoAnterior: c.estado, estadoNovo: c.estado, utilizadorId: user.id, timestamp: agora, fotoUrl, metadados: { naoConformidade: nc.tipo, severidade: nc.severidade } });
   });

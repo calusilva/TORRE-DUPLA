@@ -102,3 +102,15 @@ export function fmtCronometro(segundos: number) {
   const m = Math.floor((s % 3600) / 60);
   return `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** Quantidade com a unidade do material (kg/m² com 1 casa decimal, ml/un inteiros). */
+export function fmtQtd(v: number | string | null | undefined, unidade: string) {
+  const n = num(v);
+  if (!Number.isFinite(n)) return "—";
+  const casas = unidade === "kg" || unidade === "m2" ? 1 : 0;
+  return `${nf(casas, casas).format(n)} ${unidade === "m2" ? "m²" : unidade}`;
+}
+
+export function fmtEuro(v: number) {
+  return `${nf(2, 2).format(v)} €`;
+}
