@@ -131,3 +131,30 @@
     @apply font-sans;
   }
 }
+/* Linha de leitura do scanner */
+@keyframes scanline {
+  0%, 100% { top: 8%; }
+  50% { top: 90%; }
+}
+
+/* Chapa em produção a pulsar no layout visual */
+@keyframes pulso-chapa {
+  0%, 100% { fill: #fbbf24; }
+  50% { fill: #fde68a; }
+}
+.chapa-em-producao {
+  animation: pulso-chapa 1.4s ease-in-out infinite;
+}
+
+/* Alerta de tempo excedido no dashboard */
+@keyframes alerta-vermelho {
+  0%, 100% { background-color: rgb(220 38 38 / 0.9); }
+  50% { background-color: rgb(127 29 29 / 0.6); }
+}
+.alerta-piscar {
+  animation: alerta-vermelho 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapa-em-producao, .alerta-piscar { animation: none; }
+}
