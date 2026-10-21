@@ -249,3 +249,45 @@ export async function chapasDaZona(obraId: string, zona: string | null) {
     .from(chapas)
     .where(and(eq(chapas.obraId, obraId), zona === null ? sql`${chapas.zona} is null` : eq(chapas.zona, zona)));
 }
+
+// ------------------------------------------------------------
+// Scan / transições
+// ------------------------------------------------------------
+export type ChapaScan = Awaited<ReturnType<typeof obterChapaScan>>;
+
+/** Dados da chapa para o cartão de scan e painel do layout — uma única query. */
+export async function obterChapaScan(filtro: { id: string } | { codigo: string }) {
+  const ncAbertas = sql<number>`(select count(*)::int from ${naoConformidades} where ${naoConformidades.chapaId} = ${chapas.id} and ${naoConformidades.estado} in ('aberta','em_resolucao'))`;
+  const [c] = await db
+    .select({
+      id: chapas.id,
+      codigo: chapas.codigo,
+      estado: chapas.estado,
+      ofId: chapas.ofId,
+      numeroOf: ordensFabrico.numero,
+      estadoOf: ordensFabrico.estado,
+      obraId: obras.id,
+      obraCodigo: obras.codigo,
+      obraNome: obras.nome,
+      cliente: obras.cliente,
+      zona: chapas.zona,
+      piso: chapas.piso,
+      coluna: chapas.coluna,
+      largura: chapas.largura,
+      altura: chapas.altura,
+      m2: chapas.m2,
+      material: chapas.material,
+      operador: utilizadores.nome,
+      dataInicioProd: chapas.dataInicioProd,
+      dataFimProd: chapas.dataFimProd,
+      temNaoConformidade: chapas.temNaoConformidade,
+      ncAbertas,
+      updatedAt: chapas.updatedAt,
+    })
+    .from(chapas)
+    .innerJoin(ordensFabrico, eq(ordensFabrico.id, chapas.ofId))
+    .innerJoin(obras, eq(obras.id, chapas.obraId))
+    .leftJoin(utilizadores, eq(utilizadores.id, chapas.operadorProducaoId))
+    .where("id" in filtro ? eq(chapas.id, filtro.id) : eq(chapas.codigo, filtro.codigo));
+  return c ?? null;
+}

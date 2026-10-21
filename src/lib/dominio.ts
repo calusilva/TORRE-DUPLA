@@ -170,3 +170,47 @@ export const LABEL_ACAO_NC: Record<AcaoNC, string> = {
   sucata: "Sucata",
 };
 export const LABEL_ESTADO_NC: Record<EstadoNC, string> = { aberta: "Aberta", em_resolucao: "Em resolução", resolvida: "Resolvida", fechada: "Fechada" };
+
+// ------------------------------------------------------------
+// Transições de estado — acções apresentadas ao utilizador
+// ------------------------------------------------------------
+export interface AccaoTransicao {
+  label: string;
+  icone: "play" | "check" | "pause" | "shield" | "x" | "wrench" | "truck" | "pin";
+  tom: "primario" | "sucesso" | "neutro" | "perigo";
+  evento: TipoEvento;
+}
+
+export const ACCOES_TRANSICAO: Partial<Record<`${EstadoChapa}>${EstadoChapa}`, AccaoTransicao>> = {
+  "por_produzir>em_producao": { label: "Iniciar produção", icone: "play", tom: "primario", evento: "inicio_producao" },
+  "em_producao>produzida": { label: "Marcar como produzida", icone: "check", tom: "sucesso", evento: "fim_producao" },
+  "em_producao>por_produzir": { label: "Suspender", icone: "pause", tom: "neutro", evento: "observacao" },
+  "produzida>aprovada_qc": { label: "Aprovar QC", icone: "shield", tom: "sucesso", evento: "qc_aprovado" },
+  "produzida>rejeitada_qc": { label: "Reprovar QC", icone: "x", tom: "perigo", evento: "qc_reprovado" },
+  "rejeitada_qc>em_retrabalho": { label: "Iniciar retrabalho", icone: "wrench", tom: "primario", evento: "retrabalho_inicio" },
+  "em_retrabalho>produzida": { label: "Concluir retrabalho", icone: "check", tom: "sucesso", evento: "retrabalho_fim" },
+  "aprovada_qc>expedida": { label: "Registar expedição", icone: "truck", tom: "primario", evento: "expedicao" },
+  "expedida>instalada": { label: "Confirmar instalação", icone: "pin", tom: "primario", evento: "instalacao" },
+};
+
+export function accaoTransicao(de: EstadoChapa, para: EstadoChapa) {
+  return ACCOES_TRANSICAO[`${de}>${para}`];
+}
+
+/** Estados de destino que cada perfil pode aplicar. */
+export const PERMISSOES_ESTADO: Record<Perfil, EstadoChapa[]> = {
+  admin: [...ESTADOS_CHAPA],
+  encarregado: [...ESTADOS_CHAPA],
+  operador: ["em_producao", "produzida", "por_produzir", "em_retrabalho"],
+  qc: ["aprovada_qc", "rejeitada_qc"],
+};
+
+/** Transições válidas a partir de um estado, filtradas pelo perfil. */
+export function transicoesPermitidas(estado: EstadoChapa, perfil: Perfil): EstadoChapa[] {
+  return TRANSICOES_VALIDAS[estado].filter((d) => PERMISSOES_ESTADO[perfil].includes(d));
+}
+
+/** Fuso horário da fábrica — usado para "hoje" nas agregações SQL. */
+export const FUSO_FABRICA = "Europe/Lisbon";
+/** Meta diária de chapas produzidas (dashboard). */
+export const META_DIARIA_CHAPAS = 40;

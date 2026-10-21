@@ -52,3 +52,27 @@ export function gerarPayloadQR(dados: {
 export function calcularM2(larguraMm: number, alturaMm: number): number {
   return (larguraMm * alturaMm) / 1_000_000;
 }
+
+const RE_CODIGO = /TD-\d{4}-\d{4}-\d{4}/i;
+
+/**
+ * Extrai o código da chapa de uma leitura: payload JSON do QR, URL de
+ * rastreabilidade, Code 128 ou introdução manual. Devolve null se não reconhecer.
+ */
+export function extrairCodigoChapa(leitura: string): string | null {
+  const texto = leitura.trim();
+  if (!texto) return null;
+  if (texto.startsWith("{")) {
+    try {
+      const p = JSON.parse(texto) as Partial<QRCodePayload>;
+      if (p.c && RE_CODIGO.test(p.c)) return p.c.toUpperCase();
+    } catch {
+      /* não é JSON válido — tenta os outros formatos */
+    }
+  }
+  const url = /\/rastreabilidade\/([^/?#\s]+)/i.exec(texto);
+  if (url) return decodeURIComponent(url[1]).toUpperCase();
+  // Leitores USB com teclado não-PT podem trocar "-" por "'" ou "/".
+  const normalizado = texto.replace(/['/_]/g, "-");
+  return RE_CODIGO.exec(normalizado)?.[0].toUpperCase() ?? null;
+}
