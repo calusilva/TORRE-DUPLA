@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EstadoChapaBadge } from "@/components/ui/EstadoChapaBadge";
 import { LABEL_ACAO_NC, LABEL_ESTADO_NC, LABEL_SEVERIDADE_NC, LABEL_TIPO_NC, type AcaoNC, type EstadoNC, type SeveridadeNC, type TipoNC } from "@/lib/dominio";
 import { fmtDataHora, fmtDimensoes, fmtDuracao, fmtInt, fmtKg, fmtM2, minutosEntre } from "@/lib/formato";
-import { code128Svg, conteudoQR, qrSvg } from "@/lib/qr";
+import { code128Svg, conteudoQR, origemPedido, qrSvg } from "@/lib/qr";
 import { chapasDaZona, obterChapa } from "@/lib/queries";
 import { exigirSessao } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,8 @@ export default async function ChapaPage({ params }: Params) {
   const chapa = await obterChapa(chapaId).catch(() => null);
   if (!chapa || chapa.ofId !== ofId) notFound();
 
-  const [qr, barcode, vizinhas] = await Promise.all([qrSvg(conteudoQR(chapa)), code128Svg(chapa.codigo), chapasDaZona(chapa.obraId, chapa.zona)]);
+  const origem = await origemPedido();
+  const [qr, barcode, vizinhas] = await Promise.all([qrSvg(conteudoQR(chapa, origem)), code128Svg(chapa.codigo), chapasDaZona(chapa.obraId, chapa.zona)]);
   const duracaoProd = chapa.dataInicioProd ? minutosEntre(chapa.dataInicioProd, chapa.dataFimProd ?? new Date()) : null;
 
   const dados: [string, React.ReactNode][] = [
@@ -138,9 +139,9 @@ export default async function ChapaPage({ params }: Params) {
               <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[11px]">
                 {(() => {
                   try {
-                    return JSON.stringify(JSON.parse(conteudoQR(chapa)), null, 2);
+                    return JSON.stringify(JSON.parse(conteudoQR(chapa, origem)), null, 2);
                   } catch {
-                    return conteudoQR(chapa);
+                    return conteudoQR(chapa, origem);
                   }
                 })()}
               </pre>

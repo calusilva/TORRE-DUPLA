@@ -28,6 +28,23 @@ Abrir http://localhost:3000 e entrar com uma conta de demonstração (palavra-pa
 > As datas do seed são relativas ao momento em que corre. Antes de uma apresentação,
 > correr `npm run db:seed` para que o dashboard mostre a produção "de hoje".
 
+## Demonstração
+
+| Ecrã | Endereço | Notas |
+| ---- | -------- | ----- |
+| Layout visual | `/obras/:id/layout-visual` (ou `/obras/:id/layout`) | Actualiza sozinho quando uma chapa é lida noutro dispositivo (~1 s) |
+| Dashboard TV | `/producao?tv=1` (ou `/dashboard`) | Ocupa o ecrã todo; tecla **F** = ecrã inteiro; SSE a cada 5 s |
+| Scan | `/producao/scan` (ou `/scan`) | Câmara, leitor USB/Bluetooth ou código manual (atalho `89-44`) |
+| Rastreabilidade | `/rastreabilidade/:codigo` | Pública — é o que abre ao ler o QR com a câmara do telemóvel |
+
+**Rede local (tablets e telemóveis):** arrancar com `npm run dev:rede` (ou `npm run build && npm run start:rede`)
+e abrir a aplicação **pelo IP do computador** (ex.: `http://192.168.1.50:3000`) — também para imprimir
+etiquetas, porque o QR Code usa o endereço pelo qual a aplicação foi aberta.
+
+**Câmara nos tablets:** os browsers só dão acesso à câmara em HTTPS (ou `localhost`). Opções:
+`npm run dev:https` (certificado auto-assinado — aceitar o aviso no tablet), um túnel HTTPS, ou usar
+o leitor USB/Bluetooth, que funciona em HTTP.
+
 ## Etiquetas
 
 - `GET /api/chapas/:id/etiqueta?formato=A6_individual` — etiqueta de uma chapa

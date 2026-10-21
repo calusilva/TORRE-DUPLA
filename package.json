@@ -12,7 +12,10 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "drizzle-kit migrate && tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:rede": "next dev -H 0.0.0.0",
+    "dev:https": "next dev -H 0.0.0.0 --experimental-https",
+    "start:rede": "next start -H 0.0.0.0"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

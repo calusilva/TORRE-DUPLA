@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { origemPedido } from "@/lib/qr";
 import { utilizadorActual } from "@/lib/sessao";
 import { gerarPdfEtiquetas, MAX_ETIQUETAS_POR_PDF, respostaPdf } from "@/lib/servicos/etiquetas";
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   if (!body.success) return Response.json({ erro: body.error.issues[0]?.message ?? "Pedido inválido" }, { status: 400 });
 
   try {
-    const r = await gerarPdfEtiquetas({ ...body.data, utilizadorId: user.id });
+    const r = await gerarPdfEtiquetas({ ...body.data, utilizadorId: user.id, origem: await origemPedido(req) });
     if (!r) return Response.json({ erro: "Nenhuma chapa encontrada" }, { status: 404 });
     return respostaPdf(r.pdf, r.nome);
   } catch (e) {

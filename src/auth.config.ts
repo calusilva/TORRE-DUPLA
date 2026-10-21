@@ -10,13 +10,19 @@ export const authConfig = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 }, // um turno
   providers: [],
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request: { nextUrl, headers } }) {
+      // Atrás de "-H 0.0.0.0" ou de um proxy, nextUrl.host não é o endereço que o browser usou.
+      const host = headers.get("x-forwarded-host") ?? headers.get("host") ?? nextUrl.host;
+      const proto = headers.get("x-forwarded-proto") ?? nextUrl.protocol.replace(":", "");
+      const url = (caminho: string) => new URL(caminho, `${proto}://${host}`);
       const publica = ROTAS_PUBLICAS.some((r) => nextUrl.pathname.startsWith(r));
       const autenticado = !!auth?.user;
       if (nextUrl.pathname === "/login" && autenticado) {
-        return Response.redirect(new URL("/obras", nextUrl));
+        return Response.redirect(url("/"));
       }
-      return publica || autenticado;
+      if (publica || autenticado) return true;
+      const destino = encodeURIComponent(nextUrl.pathname + nextUrl.search);
+      return Response.redirect(url(`/login?callbackUrl=${destino}`));
     },
     jwt({ token, user }) {
       if (user) {

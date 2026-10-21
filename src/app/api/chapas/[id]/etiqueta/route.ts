@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { origemPedido } from "@/lib/qr";
 import { utilizadorActual } from "@/lib/sessao";
 import { gerarPdfEtiquetas, respostaPdf } from "@/lib/servicos/etiquetas";
 
@@ -20,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!q.success) return Response.json({ erro: "Parâmetros inválidos" }, { status: 400 });
 
   try {
-    const r = await gerarPdfEtiquetas({ chapaIds: [id], formato: q.data.formato, incluirBarcode: q.data.barcode === "1", utilizadorId: user.id });
+    const r = await gerarPdfEtiquetas({ chapaIds: [id], formato: q.data.formato, incluirBarcode: q.data.barcode === "1", utilizadorId: user.id, origem: await origemPedido(req) });
     if (!r) return Response.json({ erro: "Chapa não encontrada" }, { status: 404 });
     return respostaPdf(r.pdf, r.nome);
   } catch (e) {

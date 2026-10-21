@@ -5,12 +5,18 @@ import { signIn, signOut } from "@/auth";
 
 export type EstadoLogin = { erro?: string } | undefined;
 
+/** Só caminhos internos ("/of/…"): evita redireccionamentos para outros sites. */
+function destinoSeguro(valor: FormDataEntryValue | null) {
+  const v = typeof valor === "string" ? valor : "";
+  return v.startsWith("/") && !v.startsWith("//") ? v : "/";
+}
+
 export async function entrar(_prev: EstadoLogin, formData: FormData): Promise<EstadoLogin> {
   try {
     await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      redirectTo: (formData.get("redirectTo") as string) || "/",
+      redirectTo: destinoSeguro(formData.get("redirectTo")),
     });
   } catch (error) {
     if (error instanceof AuthError) {

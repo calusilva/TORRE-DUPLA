@@ -136,6 +136,13 @@ export function ImprimirEtiquetas({
             <p className="text-xs text-muted-foreground">{FORMATOS.find((f) => f.valor === formato)?.detalhe}</p>
           </div>
 
+          {typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname) && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+              Está a usar a aplicação em <strong>localhost</strong>: os QR Codes vão apontar para este computador e não abrem nos telemóveis. Para a
+              demonstração, abra a aplicação pelo endereço de rede (ex.: http://192.168.1.50:3000) antes de imprimir.
+            </p>
+          )}
+
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={barcode} onCheckedChange={(v) => setBarcode(v === true)} />
             Incluir código de barras Code 128 (leitores USB)

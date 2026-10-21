@@ -24,6 +24,7 @@ export async function gerarPdfEtiquetas(params: {
   formato: FormatoEtiqueta;
   incluirBarcode: boolean;
   utilizadorId: string;
+  origem?: string;
 }) {
   const chapas = await chapasParaEtiqueta(params.chapaIds);
   if (!chapas.length) return null;
@@ -43,7 +44,7 @@ export async function gerarPdfEtiquetas(params: {
       m2: c.m2,
       peso: c.peso,
       material: c.material,
-      qrPng: await qrPngDataUrl(conteudoQR(c)),
+      qrPng: await qrPngDataUrl(conteudoQR(c, params.origem)),
       barcodePng: params.incluirBarcode ? await code128PngDataUrl(c.codigo) : undefined,
     })),
   );

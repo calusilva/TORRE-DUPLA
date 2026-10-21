@@ -149,7 +149,7 @@ function PreVisualizacao({ larguras, alturas, pisoBase }: { larguras: number[]; 
   const mostrarTexto = larguras.length <= 30 && alturas.length <= 20;
 
   return (
-    <div className="max-h-80 overflow-auto bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-muted)_6px,var(--color-muted)_7px)] p-4">
+    <div className="max-h-80 overflow-auto bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--muted)_6px,var(--muted)_7px)] p-4">
       <svg
         viewBox={`${-margemEsq} ${-margemTopo} ${dim.largura + margemEsq + 2} ${dim.altura + margemTopo + 2}`}
         className="mx-auto block h-auto max-h-64 w-full"
