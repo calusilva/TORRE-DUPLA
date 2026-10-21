@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GS ERP Industrial — Demo Torre Dupla
 
-## Getting Started
+Demonstração do GS ERP Industrial para a Torre Dupla, Lda.: gestão de chapas por obra,
+rastreabilidade individual por QR Code e controlo de produção em tempo real.
+Especificação completa em [PROMPT.md](PROMPT.md).
 
-First, run the development server:
+## Arranque
+
+Requisitos: Node 20+ e PostgreSQL 16+.
 
 ```bash
+cp .env.example .env.local        # ajustar DATABASE_URL e gerar AUTH_SECRET
+createdb gs_erp_demo
+npm install
+npm run db:reset                  # aplica migrações + seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrir http://localhost:3000 e entrar com uma conta de demonstração (palavra-passe `demo123`):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Email            | Perfil       |
+| ---------------- | ------------ |
+| admin@demo.gs    | Admin        |
+| rui@demo.gs      | Encarregado  |
+| joao@demo.gs     | Operador     |
+| manuel@demo.gs   | Inspector QC |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> As datas do seed são relativas ao momento em que corre. Antes de uma apresentação,
+> correr `npm run db:seed` para que o dashboard mostre a produção "de hoje".
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script               | Descrição                                   |
+| -------------------- | ------------------------------------------- |
+| `npm run dev`        | Servidor de desenvolvimento                 |
+| `npm run db:generate`| Gera migração a partir de `src/db/schema.ts`|
+| `npm run db:migrate` | Aplica migrações                            |
+| `npm run db:seed`    | Repõe os dados de demonstração              |
+| `npm run db:studio`  | Drizzle Studio                              |
+| `npm run typecheck`  | Verificação de tipos                        |

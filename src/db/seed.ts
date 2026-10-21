@@ -70,7 +70,6 @@ function recuarTempoUtil(data: Date, minutos: number): Date {
 
 const agora = new Date();
 const ANO = agora.getFullYear();
-const MES = agora.getMonth() + 1;
 const minAtras = (m: number) => new Date(agora.getTime() - m * MIN);
 const diasAtras = (d: number, hora = 10) => {
   const r = new Date(agora);
