@@ -1,7 +1,16 @@
-import { EmConstrucao } from "@/components/layout/em-construcao";
-import { exigirPerfil } from "@/lib/sessao";
+import type { Metadata } from "next";
+import { PageHeader } from "@/components/comum/page-header";
+import { PesquisaRastreabilidade } from "@/components/chapas/pesquisa-rastreabilidade";
+import { exigirSessao } from "@/lib/sessao";
 
-export default async function Page() {
-  await exigirPerfil(["admin", "encarregado", "operador", "qc"]);
-  return <EmConstrucao titulo="Rastreabilidade" sprint={4} descricao="Histórico completo de cada chapa, do corte à instalação em obra." />;
+export const metadata: Metadata = { title: "Rastreabilidade" };
+
+export default async function RastreabilidadeIndex() {
+  await exigirSessao();
+  return (
+    <div className="max-w-2xl">
+      <PageHeader titulo="Rastreabilidade" descricao="Histórico completo de uma chapa, do corte à instalação. É a mesma página pública que abre ao ler o QR Code da etiqueta." />
+      <PesquisaRastreabilidade />
+    </div>
+  );
 }
