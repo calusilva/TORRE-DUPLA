@@ -15,6 +15,8 @@ import postgres from "postgres";
 import * as schema from "./schema";
 import { calcularM2, gerarCodigoChapa, gerarPayloadQR, sufixoOf } from "../lib/codigos";
 import { POSTOS_TRABALHO, type EstadoChapa } from "../lib/dominio";
+import { planearGrelha, type ChapaPlaneada, type GrelhaZona } from "../lib/fachada";
+import { MATERIAIS } from "../lib/materiais";
 
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
 const db = drizzle(client, { schema });
@@ -84,73 +86,13 @@ const diasAFrente = (d: number) => {
   return dataISO(r);
 };
 
-// ------------------------------------------------------------
-// Materiais (peso aproximado em kg/m²)
-// ------------------------------------------------------------
-const MATERIAIS = {
-  acmPrata: { nome: "ACM 4mm Prata Mate", espessura: 4, kgM2: 7.6, cor: "Prata Metalizado", acabamento: "Mate" },
-  acmAntracite: { nome: "ACM 4mm Antracite", espessura: 4, kgM2: 7.6, cor: "Antracite RAL 7016", acabamento: "Mate" },
-  hplBranco: { nome: "HPL 10mm Branco", espessura: 10, kgM2: 14.0, cor: "Branco Puro", acabamento: "Liso" },
-  acmCinza: { nome: "ACM 3mm Cinza RAL7035", espessura: 3, kgM2: 5.9, cor: "Cinza Luz RAL 7035", acabamento: "Acetinado" },
-  alucobondBronze: { nome: "ALUCOBOND 4mm Bronze", espessura: 4, kgM2: 7.6, cor: "Bronze Anodizado", acabamento: "Escovado" },
-} as const;
 type Material = (typeof MATERIAIS)[keyof typeof MATERIAIS];
 
-// Escala do layout visual: 1 mm = 0,1 px; 2 px de junta entre chapas.
-const ESCALA = 0.1;
-const JUNTA = 2;
-const LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-interface ZonaGrelha {
-  zona: string;
-  larguras: number[]; // largura (mm) de cada coluna
-  alturas: number[]; // altura (mm) de cada fila, de cima para baixo
-  pisoBase?: number;
-}
-
-interface ChapaPlaneada {
-  seq: number;
-  zona: string;
-  largura: number;
-  altura: number;
-  piso: number;
-  coluna: string;
-  linha: number;
-  posicaoX: number;
-  posicaoY: number;
-}
-
-/** Gera a grelha da fachada; a sequência segue a ordem de montagem (baixo → cima, esq → dir). */
-function planearChapas(zonas: ZonaGrelha[]): ChapaPlaneada[] {
-  const resultado: ChapaPlaneada[] = [];
-  let seq = 1;
-  for (const z of zonas) {
-    const filas = z.alturas.length;
-    const ys: number[] = [];
-    let y = 0;
-    for (const a of z.alturas) {
-      ys.push(y);
-      y += a * ESCALA + JUNTA;
-    }
-    for (let fila = filas - 1; fila >= 0; fila--) {
-      let x = 0;
-      z.larguras.forEach((larg, col) => {
-        resultado.push({
-          seq: seq++,
-          zona: z.zona,
-          largura: larg,
-          altura: z.alturas[fila],
-          piso: (z.pisoBase ?? 1) + (filas - 1 - fila),
-          coluna: LETRAS[col],
-          linha: filas - fila,
-          posicaoX: x,
-          posicaoY: ys[fila],
-        });
-        x += larg * ESCALA + JUNTA;
-      });
-    }
-  }
-  return resultado;
+/** Planeia várias zonas de uma OF com sequência contínua. */
+function planearChapas(zonas: GrelhaZona[]): ChapaPlaneada[] {
+  const out: ChapaPlaneada[] = [];
+  for (const z of zonas) out.push(...planearGrelha(z, { seqInicial: out.length + 1 }));
+  return out;
 }
 
 async function main() {
@@ -164,17 +106,19 @@ async function main() {
   // Utilizadores
   // ----------------------------------------------------------
   console.log("→ Utilizadores");
+  // IDs fixos: repetir o seed não invalida as sessões abertas.
+  const idUtilizador = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
   const hash = await bcrypt.hash("demo123", 10);
   const users = await db
     .insert(schema.utilizadores)
     .values([
-      { nome: "Admin GS", email: "admin@demo.gs", perfil: "admin", passwordHash: hash },
-      { nome: "Rui Ferreira", email: "rui@demo.gs", perfil: "encarregado", passwordHash: hash },
-      { nome: "João Santos", email: "joao@demo.gs", perfil: "operador", passwordHash: hash },
-      { nome: "Manuel Rodrigues", email: "manuel@demo.gs", perfil: "qc", passwordHash: hash },
-      { nome: "Ana Carvalho", email: "ana@demo.gs", perfil: "operador", passwordHash: hash },
-      { nome: "Carlos Mendes", email: "carlos@demo.gs", perfil: "operador", passwordHash: hash },
-      { nome: "Pedro Almeida", email: "pedro@demo.gs", perfil: "operador", passwordHash: hash },
+      { id: idUtilizador(1), nome: "Admin GS", email: "admin@demo.gs", perfil: "admin", passwordHash: hash },
+      { id: idUtilizador(2), nome: "Rui Ferreira", email: "rui@demo.gs", perfil: "encarregado", passwordHash: hash },
+      { id: idUtilizador(3), nome: "João Santos", email: "joao@demo.gs", perfil: "operador", passwordHash: hash },
+      { id: idUtilizador(4), nome: "Manuel Rodrigues", email: "manuel@demo.gs", perfil: "qc", passwordHash: hash },
+      { id: idUtilizador(5), nome: "Ana Carvalho", email: "ana@demo.gs", perfil: "operador", passwordHash: hash },
+      { id: idUtilizador(6), nome: "Carlos Mendes", email: "carlos@demo.gs", perfil: "operador", passwordHash: hash },
+      { id: idUtilizador(7), nome: "Pedro Almeida", email: "pedro@demo.gs", perfil: "operador", passwordHash: hash },
     ])
     .returning();
   const u = Object.fromEntries(users.map((x) => [x.email.split("@")[0], x]));
@@ -261,7 +205,7 @@ async function main() {
     descricao: string;
     zona: string;
     material: Material;
-    grelha: ZonaGrelha[];
+    grelha: GrelhaZona[];
     estado: schema.OrdemFabrico["estado"];
     prioridade: number;
     responsavel: schema.Utilizador;
@@ -553,10 +497,16 @@ async function main() {
   let cursor = recuarTempoUtil(agora, randInt(3, 8));
   const recencia = new Map<string, number>(); // posição por OF (0 = mais recente)
   for (const { chapa, def } of ordemGlobal) {
-    const fim = cursor;
-    cursor = recuarTempoUtil(cursor, randInt(12, 24));
     const duracao = def.material === MATERIAIS.hplBranco ? randInt(60, 180) : randInt(45, 150);
-    const inicio = recuarTempoUtil(fim, duracao);
+    // Uma chapa é feita dentro do mesmo turno: se não couber, passa para o fim do turno anterior.
+    let fim = cursor;
+    const inicioTurno = new Date(fim);
+    inicioTurno.setHours(INICIO_TURNO, 0, 0, 0);
+    if (fim.getTime() - duracao * MIN < inicioTurno.getTime()) {
+      fim = recuarTempoUtil(inicioTurno, randInt(5, 40));
+    }
+    const inicio = new Date(fim.getTime() - duracao * MIN);
+    cursor = recuarTempoUtil(fim, randInt(12, 24));
     const op = escolher(operadores);
     const r = recencia.get(def.numero) ?? 0;
     recencia.set(def.numero, r + 1);
