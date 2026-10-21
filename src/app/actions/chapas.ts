@@ -2,6 +2,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { chapaEventos, chapas, naoConformidades, obras, ordensFabrico } from "@/db/schema";
@@ -38,6 +39,14 @@ export async function lerChapa(leitura: string): Promise<Resultado> {
   const chapa = await obterChapaScan({ codigo });
   if (!chapa) return { ok: false, erro: `Chapa ${codigo} não encontrada.` };
   return { ok: true, chapa };
+}
+
+/** Dados actualizados de uma chapa (painel lateral do layout). */
+export async function lerChapaPorId(id: string): Promise<Resultado> {
+  await exigirSessao();
+  if (!z.uuid().safeParse(id).success) return { ok: false, erro: "Chapa inválida." };
+  const chapa = await obterChapaScan({ id });
+  return chapa ? { ok: true, chapa } : { ok: false, erro: "Chapa não encontrada." };
 }
 
 const ncSchema = z.object({
@@ -244,4 +253,11 @@ export async function reportarProblema(input: { chapaId: string } & DadosNC): Pr
   revalidatePath(`/of/${c.ofId}`);
   const chapa = (await obterChapaScan({ id: c.id }))!;
   return { ok: true, chapa, mensagem: "Não conformidade registada" };
+}
+
+/** Pesquisa de rastreabilidade (formulário) — aceita qualquer formato de leitura. */
+export async function procurarRastreabilidade(_prev: unknown, formData: FormData): Promise<{ erro: string } | undefined> {
+  const r = await lerChapa(String(formData.get("codigo") ?? ""));
+  if (!r.ok) return { erro: r.erro };
+  redirect(`/rastreabilidade/${r.chapa.codigo}`);
 }

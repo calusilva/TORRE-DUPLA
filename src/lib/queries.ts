@@ -291,3 +291,44 @@ export async function obterChapaScan(filtro: { id: string } | { codigo: string }
     .where("id" in filtro ? eq(chapas.id, filtro.id) : eq(chapas.codigo, filtro.codigo));
   return c ?? null;
 }
+
+// ------------------------------------------------------------
+// Layout visual
+// ------------------------------------------------------------
+export type ChapaLayout = Awaited<ReturnType<typeof chapasLayout>>[number];
+
+/** Todas as chapas de uma obra com o necessário para desenhar a fachada. */
+export async function chapasLayout(obraId: string) {
+  const etiquetas = db.select({ chapaId: etiquetasImpressas.chapaId }).from(etiquetasImpressas).groupBy(etiquetasImpressas.chapaId).as("etq");
+  return db
+    .select({
+      id: chapas.id,
+      codigo: chapas.codigo,
+      estado: chapas.estado,
+      ofId: chapas.ofId,
+      numeroOf: ordensFabrico.numero,
+      zona: chapas.zona,
+      piso: chapas.piso,
+      coluna: chapas.coluna,
+      x: sql<number>`${chapas.posicaoX}::float`,
+      y: sql<number>`${chapas.posicaoY}::float`,
+      largura: sql<number>`${chapas.largura}::float`,
+      altura: sql<number>`${chapas.altura}::float`,
+      material: chapas.material,
+      operador: utilizadores.nome,
+      dataInicioProd: chapas.dataInicioProd,
+      ncAberta: sql<boolean>`exists (select 1 from ${naoConformidades} where ${naoConformidades.chapaId} = ${chapas.id} and ${naoConformidades.estado} in ('aberta','em_resolucao'))`,
+      temEtiqueta: sql<boolean>`${etiquetas.chapaId} is not null`,
+    })
+    .from(chapas)
+    .innerJoin(ordensFabrico, eq(ordensFabrico.id, chapas.ofId))
+    .leftJoin(utilizadores, eq(utilizadores.id, chapas.operadorProducaoId))
+    .leftJoin(etiquetas, eq(etiquetas.chapaId, chapas.id))
+    .where(and(eq(chapas.obraId, obraId), sql`${chapas.posicaoX} is not null`))
+    .orderBy(asc(chapas.codigo));
+}
+
+export async function obterChapaPorCodigo(codigo: string) {
+  const [c] = await db.select({ id: chapas.id }).from(chapas).where(eq(chapas.codigo, codigo));
+  return c ? obterChapa(c.id) : null;
+}
