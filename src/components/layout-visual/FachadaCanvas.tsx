@@ -96,6 +96,7 @@ export function FachadaCanvas({ chapas, className }: { chapas: ChapaDesenho[]; c
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
   const [aArrastar, setAArrastar] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
+  const [ajustado, setAjustado] = useState(false);
 
   // Relógio para o tempo em produção no tooltip.
   useEffect(() => {
@@ -113,6 +114,7 @@ export function FachadaCanvas({ chapas, className }: { chapas: ChapaDesenho[]; c
       panX: (el.clientWidth - larguraTotal * z) / 2 + MARGEM_ESQ * z,
       panY: (el.clientHeight - desenho.altura * z) / 2,
     });
+    setAjustado(true);
   }, [desenho.largura, desenho.altura, setVista]);
 
   // Ajusta ao ecrã ao abrir e ao mudar de zona.
@@ -216,7 +218,7 @@ export function FachadaCanvas({ chapas, className }: { chapas: ChapaDesenho[]; c
       role="application"
       aria-label="Layout da fachada. Use os botões de zoom ou a roda do rato; arraste para mover."
     >
-      <svg className="absolute inset-0 size-full">
+      <svg className={cn("absolute inset-0 size-full transition-opacity duration-300", ajustado ? "opacity-100" : "opacity-0")}>
         <g transform={`translate(${panX} ${panY}) scale(${zoom})`}>
           {desenho.zonas.map((z) => (
             <g key={z.zona}>

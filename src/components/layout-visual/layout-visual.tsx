@@ -29,7 +29,8 @@ export function LayoutVisual({ obraId, chapas, perfil }: { obraId: string; chapa
   }, [obraId]);
 
   // Tempo real: outra pessoa a ler chapas no chão de fábrica actualiza este ecrã.
-  const ligado = useEventosTempoReal(`obra:${obraId}`, () => router.refresh());
+  const { estado: ligacao, segundosParaReligar } = useEventosTempoReal(`obra:${obraId}`, () => router.refresh());
+  const ligado = ligacao === "ligado";
 
   const lista = useMemo(() => chapas.map((c) => (sobreposicoes[c.id] ? { ...c, ...sobreposicoes[c.id] } : c)), [chapas, sobreposicoes]);
   const zonas = useMemo(() => [...new Set(chapas.map((c) => c.zona ?? "Sem zona"))], [chapas]);
@@ -75,7 +76,7 @@ export function LayoutVisual({ obraId, chapas, perfil }: { obraId: string; chapa
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Radio className={cn("size-3.5", ligado ? "text-green-600" : "text-muted-foreground")} />
-            {ligado ? "Actualização em tempo real" : "A ligar…"}
+            {ligado ? "Actualização em tempo real" : ligacao === "a_ligar" ? "A ligar…" : `A reconectar${segundosParaReligar ? ` em ${segundosParaReligar} s` : "…"}`}
           </div>
         </div>
         {porZona.length > 1 && (

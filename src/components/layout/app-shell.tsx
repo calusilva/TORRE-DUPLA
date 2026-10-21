@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
@@ -25,6 +25,7 @@ export function AppShell({
 }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const pathname = usePathname();
+  const contadoresVivos = useContadores(contadores, pathname);
   const todos = [...principal, ...secundaria];
   const titulo = todos.find((i) => i.href === hrefActivo(pathname, todos))?.label;
 
@@ -35,7 +36,7 @@ export function AppShell({
         <div className="flex h-14 items-center border-b px-4">
           <Logo />
         </div>
-        <SidebarNav principal={principal} secundaria={secundaria} contadores={contadores} />
+        <SidebarNav principal={principal} secundaria={secundaria} contadores={contadoresVivos} />
       </aside>
 
       {/* Sidebar mobile */}
@@ -48,7 +49,7 @@ export function AppShell({
           <SidebarNav
             principal={principal}
             secundaria={secundaria}
-            contadores={contadores}
+            contadores={contadoresVivos}
             onNavigate={() => setMenuAberto(false)}
           />
         </SheetContent>
@@ -68,4 +69,26 @@ export function AppShell({
       </div>
     </div>
   );
+}
+
+/** Badges da sidebar: polling leve a cada 30 s e ao mudar de página. */
+function useContadores(iniciais: ContadoresNav, pathname: string) {
+  const [valores, setValores] = useState(iniciais);
+  useEffect(() => {
+    let cancelado = false;
+    const actualizar = () =>
+      fetch("/api/contadores", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((v: ContadoresNav | null) => v && !cancelado && setValores(v))
+        .catch(() => {});
+    actualizar();
+    const t = setInterval(actualizar, 30_000);
+    window.addEventListener("contadores:actualizar", actualizar);
+    return () => {
+      cancelado = true;
+      clearInterval(t);
+      window.removeEventListener("contadores:actualizar", actualizar);
+    };
+  }, [pathname]);
+  return valores;
 }

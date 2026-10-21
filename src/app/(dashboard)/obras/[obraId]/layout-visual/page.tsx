@@ -5,7 +5,7 @@ import { EstadoObraBadge } from "@/components/comum/estado-badges";
 import { PageHeader, Vazio } from "@/components/comum/page-header";
 import { LayoutVisual } from "@/components/layout-visual/layout-visual";
 import { Button } from "@/components/ui/button";
-import { chapasLayout, obterObra } from "@/lib/queries";
+import { chapasLayout, listarOFs, obterObra } from "@/lib/queries";
 import { exigirPerfil } from "@/lib/sessao";
 
 type Params = { params: Promise<{ obraId: string }> };
@@ -21,7 +21,8 @@ export default async function LayoutVisualPage({ params }: Params) {
   const { obraId } = await params;
   const dados = await obterObra(obraId).catch(() => null);
   if (!dados) notFound();
-  const chapas = await chapasLayout(obraId);
+  const [chapas, ofs] = await Promise.all([chapasLayout(obraId), listarOFs({ obraId })]);
+  const ofSemChapas = ofs.find((o) => o.total === 0 && o.of.estado !== "cancelada" && o.of.estado !== "concluida");
 
   return (
     <>
@@ -40,15 +41,27 @@ export default async function LayoutVisualPage({ params }: Params) {
         }
       />
       {chapas.length === 0 ? (
-        <Vazio
-          titulo="Ainda não há chapas nesta obra"
-          descricao="Crie uma OF e gere as chapas a partir da grelha da fachada para as ver aqui."
-          accao={
-            <Button asChild>
-              <Link href={`/of/nova?obraId=${obraId}`}>Nova OF</Link>
-            </Button>
-          }
-        />
+        ofSemChapas ? (
+          <Vazio
+            titulo={`A ${ofSemChapas.of.numero} ainda não tem chapas geradas`}
+            descricao="Gere o lote a partir da grelha da fachada — cada chapa fica com código, QR Code e posição neste layout."
+            accao={
+              <Button asChild>
+                <Link href={`/of/${ofSemChapas.of.id}?gerar=1`}>Gerar lote</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <Vazio
+            titulo="Esta obra ainda não tem chapas geradas"
+            descricao="Crie uma OF e gere o lote de chapas a partir da grelha da fachada para as ver aqui."
+            accao={
+              <Button asChild>
+                <Link href={`/of/nova?obraId=${obraId}`}>Nova OF e gerar lote</Link>
+              </Button>
+            }
+          />
+        )
       ) : (
         <LayoutVisual obraId={obraId} chapas={chapas} perfil={user.perfil} />
       )}

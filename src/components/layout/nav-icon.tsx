@@ -5,6 +5,7 @@ import {
   Package,
   ScanLine,
   Search,
+  Warehouse,
   Settings,
   ShieldCheck,
   type LucideIcon,
@@ -18,6 +19,7 @@ const ICONES: Record<ItemNav["icon"], LucideIcon> = {
   scan: ScanLine,
   rastreabilidade: Search,
   qc: ShieldCheck,
+  stock: Warehouse,
   relatorios: BarChart3,
   configuracoes: Settings,
 };

@@ -15,7 +15,9 @@ export function AdicionarLote({
   zonasExistentes,
   materialInicial,
   pisoInicial,
+  abertoInicial = false,
 }: {
+  abertoInicial?: boolean;
   ofId: string;
   numero: string;
   zonasExistentes: string[];
@@ -23,7 +25,7 @@ export function AdicionarLote({
   pisoInicial?: number;
 }) {
   const router = useRouter();
-  const [aberto, setAberto] = useState(false);
+  const [aberto, setAberto] = useState(abertoInicial);
   const [estado, submeter, pendente] = useActionState(adicionarLoteChapas.bind(null, ofId), null);
 
   useEffect(() => {

@@ -7,6 +7,9 @@ const ROTAS_PUBLICAS = ["/login", "/rastreabilidade"];
 
 export const authConfig = {
   pages: { signIn: "/login" },
+  // A demo é acedida por IP na rede local (tablets, TV); o host é validado pelo próprio servidor.
+  trustHost: true,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 }, // um turno
   providers: [],
   callbacks: {

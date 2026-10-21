@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { actualizarContadores, comTimeout, toastFalhaRede } from "@/lib/accao-cliente";
 
 /**
  * Botão que executa uma server action com loading + toast.
@@ -43,9 +44,10 @@ export function AccaoConfirmada({
   function executar() {
     startTransition(async () => {
       try {
-        const r = await accao();
+        const r = await comTimeout(accao());
         if (r.ok) {
           toast.success(r.mensagem);
+          actualizarContadores();
           setAberto(false);
           if (redirecionar) router.push(redirecionar);
           else router.refresh();
@@ -53,8 +55,8 @@ export function AccaoConfirmada({
           toast.error(r.erro);
           setAberto(false);
         }
-      } catch {
-        toast.error("Ocorreu um erro inesperado. Tente novamente.");
+      } catch (e) {
+        toastFalhaRede(e, executar);
       }
     });
   }

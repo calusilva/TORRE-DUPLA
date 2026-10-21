@@ -36,6 +36,9 @@ Abrir http://localhost:3000 e entrar com uma conta de demonstração (palavra-pa
 | Dashboard TV | `/producao?tv=1` (ou `/dashboard`) | Ocupa o ecrã todo; tecla **F** = ecrã inteiro; SSE a cada 5 s |
 | Scan | `/producao/scan` (ou `/scan`) | Câmara, leitor USB/Bluetooth ou código manual (atalho `89-44`) |
 | Rastreabilidade | `/rastreabilidade/:codigo` | Pública — é o que abre ao ler o QR com a câmara do telemóvel |
+| Fila de QC | `/qc` | Aprovar/reprovar inline (FIFO), NC com tipo, severidade e acção |
+| Stock | `/stock` | Simulação (sem Primavera): reservas, movimentos, consumos por OF; MAT-008 abaixo do mínimo |
+| Relatórios | `/relatorios/producao` | Hoje / semana / mês / intervalo, por obra e OF |
 
 **Rede local (tablets e telemóveis):** arrancar com `npm run dev:rede` (ou `npm run build && npm run start:rede`)
 e abrir a aplicação **pelo IP do computador** (ex.: `http://192.168.1.50:3000`) — também para imprimir
@@ -44,6 +47,14 @@ etiquetas, porque o QR Code usa o endereço pelo qual a aplicação foi aberta.
 **Câmara nos tablets:** os browsers só dão acesso à câmara em HTTPS (ou `localhost`). Opções:
 `npm run dev:https` (certificado auto-assinado — aceitar o aviso no tablet), um túnel HTTPS, ou usar
 o leitor USB/Bluetooth, que funciona em HTTP.
+
+## Stock (simulação)
+
+As saídas de stock são automáticas: quando uma chapa entra em produção é abatido o seu consumo
+teórico (e devolvido se a produção for suspensa). O modelo está em `src/lib/consumos.ts`:
+alumínio = m² × espessura × 2,7 kg · isolamento = m² · perfis = perímetro × 1,2 ·
+EPDM = perímetro · fixações = 8/chapa · tinta em pó = 0,12 kg/m² (RAL 9006 / 7016).
+A coluna "Reservado" considera as chapas por produzir; as já iniciadas já deram saída.
 
 ## Etiquetas
 

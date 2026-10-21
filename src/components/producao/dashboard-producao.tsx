@@ -10,6 +10,8 @@ import { fmtCronometro, fmtDimensoes, fmtInt, fmtM2, fmtRelativo } from "@/lib/f
 import type { DadosDashboard } from "@/lib/servicos/dashboard";
 import { cn } from "@/lib/utils";
 import { GraficoEstados } from "./grafico-estados";
+import { BannerLigacao } from "@/components/comum/banner-ligacao";
+import { useSSE } from "@/lib/use-sse";
 
 const DF_RELOGIO = new Intl.DateTimeFormat("pt-PT", { weekday: "short", day: "numeric", month: "short" });
 const DF_HORA = new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" });
@@ -30,7 +32,6 @@ function useRelogio(intervalo = 1000) {
  */
 export function DashboardProducao({ inicial, modoTV = false }: { inicial: DadosDashboard; modoTV?: boolean }) {
   const [dados, setDados] = useState(inicial);
-  const [ligado, setLigado] = useState(false);
   const [ultimaRecepcao, setUltimaRecepcao] = useState(() => Date.now());
   const [ecraInteiro, setEcraInteiro] = useState(false);
   const [novos, setNovos] = useState<Set<string>>(new Set());
@@ -50,14 +51,11 @@ export function DashboardProducao({ inicial, modoTV = false }: { inicial: DadosD
     setUltimaRecepcao(Date.now());
   }, []);
 
-  // SSE — o EventSource religa-se sozinho se a ligação cair.
-  useEffect(() => {
-    const es = new EventSource("/api/events?canal=dashboard");
-    es.addEventListener("open", () => setLigado(true));
-    es.addEventListener("error", () => setLigado(false));
-    es.addEventListener("dashboard", (e) => receber(JSON.parse((e as MessageEvent).data)));
-    return () => es.close();
-  }, [receber]);
+  // SSE com reconexão (backoff 2 s → 30 s).
+  const { estado: ligacao, segundosParaReligar } = useSSE("/api/events?canal=dashboard", {
+    dashboard: (d) => receber(JSON.parse(d)),
+  });
+  const ligado = ligacao === "ligado";
 
   // Ecrã inteiro: tecla F ou botão.
   const alternarEcraInteiro = useCallback(() => {
@@ -109,7 +107,7 @@ export function DashboardProducao({ inicial, modoTV = false }: { inicial: DadosD
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className={cn("size-2 rounded-full", ligado ? "animate-pulse bg-green-500" : "bg-amber-500")} />
-            {ligado ? `Ao vivo · actualizado ${segundosDesdeDados < 5 ? "agora" : `há ${segundosDesdeDados} s`}` : "A religar…"}
+            {ligado ? `Ao vivo · actualizado ${segundosDesdeDados < 5 ? "agora" : `há ${segundosDesdeDados} s`}` : ligacao === "a_ligar" ? "A ligar…" : `Sem ligação · dados de há ${segundosDesdeDados} s`}
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -125,6 +123,8 @@ export function DashboardProducao({ inicial, modoTV = false }: { inicial: DadosD
           </button>
         </div>
       </header>
+
+      <BannerLigacao estado={ligacao} segundos={segundosParaReligar} />
 
       {/* KPIs do dia */}
       <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">

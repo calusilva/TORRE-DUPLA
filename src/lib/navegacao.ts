@@ -3,9 +3,9 @@ import type { Perfil } from "@/lib/dominio";
 export interface ItemNav {
   href: string;
   label: string;
-  icon: "obras" | "of" | "producao" | "scan" | "rastreabilidade" | "qc" | "relatorios" | "configuracoes";
+  icon: "obras" | "of" | "producao" | "scan" | "rastreabilidade" | "qc" | "stock" | "relatorios" | "configuracoes";
   perfis: Perfil[];
-  badge?: "producao";
+  badge?: "producao" | "qc" | "stock";
 }
 
 const TODOS: Perfil[] = ["admin", "encarregado", "operador", "qc"];
@@ -17,8 +17,9 @@ export const NAV_PRINCIPAL: ItemNav[] = [
   { href: "/producao", label: "Produção", icon: "producao", perfis: TODOS, badge: "producao" },
   { href: "/producao/scan", label: "Scan QR", icon: "scan", perfis: TODOS },
   { href: "/rastreabilidade", label: "Rastreabilidade", icon: "rastreabilidade", perfis: TODOS },
-  { href: "/qc", label: "Controlo Qualidade", icon: "qc", perfis: ["admin", "encarregado", "qc"] },
-  { href: "/relatorios", label: "Relatórios", icon: "relatorios", perfis: GESTAO },
+  { href: "/qc", label: "Controlo Qualidade", icon: "qc", perfis: ["admin", "encarregado", "qc"], badge: "qc" },
+  { href: "/stock", label: "Stock", icon: "stock", perfis: TODOS, badge: "stock" },
+  { href: "/relatorios/producao", label: "Relatórios", icon: "relatorios", perfis: ["admin", "encarregado", "qc"] },
 ];
 
 export const NAV_SECUNDARIA: ItemNav[] = [

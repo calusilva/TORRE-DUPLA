@@ -15,7 +15,7 @@ import { LISTA_MATERIAIS } from "@/lib/materiais";
 import { listarChapasOF, obterOF } from "@/lib/queries";
 import { exigirSessao } from "@/lib/sessao";
 
-type Params = { params: Promise<{ ofId: string }> };
+type Params = { params: Promise<{ ofId: string }>; searchParams?: Promise<{ gerar?: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { ofId } = await params;
@@ -23,7 +23,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title: d?.of.numero ?? "OF" };
 }
 
-export default async function OFPage({ params }: Params) {
+export default async function OFPage({ params, searchParams }: Params) {
+  const { gerar } = (await searchParams) ?? {};
   const user = await exigirSessao();
   const gestao = user.perfil === "admin" || user.perfil === "encarregado";
   const { ofId } = await params;
@@ -167,7 +168,7 @@ export default async function OFPage({ params }: Params) {
           <Vazio
             titulo="Esta OF ainda não tem chapas"
             descricao="Gere as chapas a partir da grelha da fachada: cada uma recebe código, QR Code e posição no layout."
-            accao={editavel && <AdicionarLote ofId={of.id} numero={of.numero} zonasExistentes={zonas} />}
+            accao={editavel && <AdicionarLote ofId={of.id} numero={of.numero} zonasExistentes={zonas} abertoInicial={gerar === "1"} />}
           />
         ) : (
           <TabelaChapas ofId={of.id} chapas={chapas} />

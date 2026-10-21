@@ -8,7 +8,15 @@ import { NavIcon } from "./nav-icon";
 
 export interface ContadoresNav {
   producao: number;
+  qc: number;
+  stock: number;
 }
+
+const ESTILO_BADGE: Record<keyof ContadoresNav, { classe: string; ponto?: string; titulo: (n: number) => string }> = {
+  producao: { classe: "bg-amber-400/20 text-amber-700 dark:text-amber-300", ponto: "animate-pulse bg-amber-500", titulo: (n) => `${n} chapas em produção` },
+  qc: { classe: "bg-green-500/15 text-green-800 dark:text-green-300", ponto: "animate-pulse bg-green-500", titulo: (n) => `${n} chapas aguardam inspecção` },
+  stock: { classe: "bg-red-600 text-white", titulo: (n) => `${n} referência(s) abaixo do mínimo` },
+};
 
 export function SidebarNav({
   principal,
@@ -41,12 +49,12 @@ export function SidebarNav({
         >
           <NavIcon icon={item.icon} className="size-4 shrink-0" />
           <span className="flex-1 truncate">{item.label}</span>
-          {badge > 0 && (
+          {item.badge && badge > 0 && (
             <span
-              className="flex h-5 min-w-5 items-center justify-center gap-1 rounded-full bg-amber-400/20 px-1.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
-              title={`${badge} chapas em produção`}
+              className={cn("flex h-5 min-w-5 items-center justify-center gap-1 rounded-full px-1.5 text-[11px] font-semibold tabular-nums", ESTILO_BADGE[item.badge].classe)}
+              title={ESTILO_BADGE[item.badge].titulo(badge)}
             >
-              <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+              {ESTILO_BADGE[item.badge].ponto && <span className={cn("size-1.5 rounded-full", ESTILO_BADGE[item.badge].ponto)} />}
               {badge}
             </span>
           )}

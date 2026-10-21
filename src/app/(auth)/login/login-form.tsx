@@ -32,11 +32,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         <input type="hidden" name="redirectTo" value={redirectTo ?? "/"} />
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="username" required placeholder="nome@torredupla.pt" className="h-10" />
+          <Input id="email" name="email" type="email" autoComplete="username" required placeholder="nome@torredupla.pt" className="h-12 text-base sm:h-10 sm:text-sm" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Palavra-passe</Label>
-          <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-10" />
+          <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-12 text-base sm:h-10 sm:text-sm" />
         </div>
         {estado?.erro && (
           <p role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -44,7 +44,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             {estado.erro}
           </p>
         )}
-        <Button type="submit" className="h-10 w-full" disabled={pendente}>
+        <Button type="submit" className="h-12 w-full text-base" disabled={pendente}>
           {pendente && <Loader2 className="animate-spin" />}
           Entrar
         </Button>
@@ -63,7 +63,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               type="button"
               disabled={pendente}
               onClick={() => preencher(c.email)}
-              className="rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted disabled:opacity-50"
+              className="min-h-12 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted disabled:opacity-50"
             >
               <div className="text-sm font-medium">{c.nome}</div>
               <div className="text-xs text-muted-foreground">{c.perfil}</div>

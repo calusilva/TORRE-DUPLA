@@ -7,6 +7,7 @@ import { reportarProblema, transicionarChapa } from "@/app/actions/chapas";
 import { Button } from "@/components/ui/button";
 import { accaoTransicao, transicoesPermitidas, type AccaoTransicao, type EstadoChapa, type Perfil } from "@/lib/dominio";
 import type { ChapaScan } from "@/lib/queries";
+import { actualizarContadores, comTimeout, mensagemFalha, toastFalhaRede } from "@/lib/accao-cliente";
 import { cn } from "@/lib/utils";
 import { FormNC, type DadosFormNC } from "./form-nc";
 
@@ -61,11 +62,20 @@ export function AccoesChapa({
     setEmCurso(para);
     startTransition(async () => {
       const gps = para === "instalada" ? await obterGps() : undefined;
-      const r = await transicionarChapa({ chapaId: chapa.id, novoEstado: para, estadoEsperado: chapa.estado, nc, gps }).catch(() => ({ ok: false as const, erro: "Sem ligação ao servidor. Tente novamente." }));
+      let r;
+      try {
+        r = await comTimeout(transicionarChapa({ chapaId: chapa.id, novoEstado: para, estadoEsperado: chapa.estado, nc, gps }));
+      } catch (e) {
+        setEmCurso(null);
+        toastFalhaRede(e, () => executar(para, nc));
+        onResultado?.(false, mensagemFalha(e), para);
+        return;
+      }
       setEmCurso(null);
       if (r.ok) {
         setFormNC(null);
         toast.success(r.mensagem);
+        actualizarContadores();
         onActualizada(r.chapa);
         onResultado?.(true, r.mensagem ?? "", para);
       } else {
@@ -78,7 +88,15 @@ export function AccoesChapa({
   function reportar(nc: DadosFormNC) {
     setEmCurso("nc");
     startTransition(async () => {
-      const r = await reportarProblema({ chapaId: chapa.id, ...nc }).catch(() => ({ ok: false as const, erro: "Sem ligação ao servidor." }));
+      let r;
+      try {
+        r = await comTimeout(reportarProblema({ chapaId: chapa.id, ...nc }));
+      } catch (e) {
+        setEmCurso(null);
+        toastFalhaRede(e, () => reportar(nc));
+        onResultado?.(false, mensagemFalha(e));
+        return;
+      }
       setEmCurso(null);
       if (r.ok) {
         setFormNC(null);
