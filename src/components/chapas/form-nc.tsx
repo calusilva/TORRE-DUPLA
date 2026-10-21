@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Camera, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { LABEL_SEVERIDADE_NC, LABEL_TIPO_NC, SEVERIDADES_NC, TIPOS_NC, type SeveridadeNC, type TipoNC } from "@/lib/dominio";
+import { ACOES_NC, LABEL_ACAO_NC, LABEL_SEVERIDADE_NC, LABEL_TIPO_NC, SEVERIDADES_NC, TIPOS_NC, type AcaoNC, type SeveridadeNC, type TipoNC } from "@/lib/dominio";
 import { comprimirImagem } from "@/lib/imagem";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ export interface DadosFormNC {
   tipo: TipoNC;
   severidade: SeveridadeNC;
   descricao: string;
+  acao?: AcaoNC;
   fotoBase64?: string;
 }
 
@@ -22,7 +23,9 @@ export function FormNC({
   pendente,
   onSubmeter,
   onCancelar,
+  comAcao = false,
 }: {
+  comAcao?: boolean;
   titulo: string;
   botao: string;
   pendente: boolean;
@@ -32,6 +35,7 @@ export function FormNC({
   const [tipo, setTipo] = useState<TipoNC | null>(null);
   const [severidade, setSeveridade] = useState<SeveridadeNC>("minor");
   const [descricao, setDescricao] = useState("");
+  const [acao, setAcao] = useState<AcaoNC>("retrabalho");
   const [foto, setFoto] = useState<string | undefined>();
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -53,7 +57,7 @@ export function FormNC({
     if (!tipo) return setErro("Seleccione o tipo de problema.");
     if (descricao.trim().length < 5) return setErro("Descreva o problema (mín. 5 caracteres).");
     setErro(null);
-    onSubmeter({ tipo, severidade, descricao: descricao.trim(), fotoBase64: foto });
+    onSubmeter({ tipo, severidade, descricao: descricao.trim(), acao: comAcao ? acao : undefined, fotoBase64: foto });
   }
 
   return (
@@ -99,6 +103,24 @@ export function FormNC({
           ))}
         </div>
       </div>
+
+      {comAcao && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Acção</div>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border bg-background p-1 sm:grid-cols-4">
+            {ACOES_NC.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAcao(a)}
+                className={cn("h-9 rounded-md px-2 text-sm", acao === a ? "bg-foreground font-medium text-background" : "text-muted-foreground hover:bg-muted")}
+              >
+                {LABEL_ACAO_NC[a]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label htmlFor="nc-descricao" className="text-sm font-medium">
